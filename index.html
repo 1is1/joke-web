@@ -33,6 +33,7 @@
       padding: .5rem;
       max-height: 180px;
       overflow-y: auto;
+      margin-bottom: 4px; /* 2-3px spacing, slightly more to be safe */
     }
     .web-item {
       padding: .2rem .3rem;
@@ -137,6 +138,35 @@
       border: 1px solid #ccc;
       background: #fff;
     }
+    /* centered association input under main */
+    .assoc-floating {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 85%; /* under main center */
+      background: rgba(248, 248, 248, .9);
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: .55rem .65rem;
+      display: flex;
+      gap: .4rem;
+      align-items: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,.05);
+    }
+    .assoc-floating input {
+      width: 260px;
+      padding: .4rem .45rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: .9rem;
+    }
+    /* plus button on new web input */
+    .plus-btn {
+      width: 34px;
+      text-align: center;
+      font-weight: 600;
+      padding: .35rem 0;
+    }
   </style>
 </head>
 <body>
@@ -146,15 +176,7 @@
       <div class="web-list" id="webList" style="display:none;"></div>
       <div class="input-row">
         <input type="text" id="newRootInput" placeholder="Nyt hovedemne (fx Jul)" />
-        <button class="primary" id="addRootBtn">Tilføj</button>
-      </div>
-    </div>
-
-    <div>
-      <div class="section-title">Tilføj association</div>
-      <div class="input-row">
-        <input type="text" id="newAssocInput" placeholder="fx Gaver" />
-        <button id="addAssocBtn">+</button>
+        <button class="primary plus-btn" id="addRootBtn">+</button>
       </div>
     </div>
 
@@ -174,6 +196,11 @@
     <div class="bottom-bar">
       <div>Tip: Klik på en association i grafen for at oprette / gå til et afledt web.</div>
     </div>
+
+    <!-- centered association input in main view -->
+    <div class="assoc-floating" id="assocInputBox">
+      <input type="text" id="newAssocInput" placeholder="Ny association..." />
+    </div>
   </div>
 
   <script>
@@ -186,10 +213,13 @@
       { radius: 300, capacity: 16 }
     ];
 
-    let webs = loadFromStorage();
-    let selectedWebId = (webs.length ? webs[0].id : null);
-    let visualizedWebId = selectedWebId;
-    let centerOverrideId = null;
+    // load stored data first
+    const stored = loadFromStorage();
+
+    let webs = stored.webs;
+    let selectedWebId = stored.selectedWebId;
+    let visualizedWebId = stored.visualizedWebId;
+    let centerOverrideId = stored.centerOverrideId;
 
     const webListEl = document.getElementById('webList');
     const mainArea = document.getElementById('mainArea');
@@ -198,8 +228,9 @@
     const exportOutput = document.getElementById('exportOutput');
     const reflectSelect = document.getElementById('reflectSelect');
     const addRootBtn = document.getElementById('addRootBtn');
+    const assocInputBox = document.getElementById('assocInputBox');
 
-    // 1: Enter for new web
+    // ENTER for new web
     newRootInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -229,14 +260,13 @@
       renderAll();
     }
 
-    // enter for assoc
+    // ENTER to add association
     newAssocInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         addAssoc();
       }
     });
-    document.getElementById('addAssocBtn').addEventListener('click', addAssoc);
 
     document.getElementById('exportBtn').addEventListener('click', () => {
       exportOutput.value = generateMarkdown(webs);
@@ -295,11 +325,12 @@
     function appendWebListItem(web, level, byParent) {
       const item = document.createElement('div');
       item.className = 'web-item' + (web.id === selectedWebId ? ' active' : '');
-      // 2: click anywhere on web-item
+      // click anywhere to select
       item.addEventListener('click', () => {
         selectedWebId = web.id;
         visualizedWebId = web.id;
         centerOverrideId = null;
+        saveToStorage();
         renderAll();
       });
 
@@ -309,7 +340,6 @@
 
       const delBtn = document.createElement('button');
       delBtn.textContent = '✕';
-      // prevent item-click
       delBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         deleteWeb(web.id);
@@ -325,7 +355,6 @@
       }
     }
 
-    // 3+4: Vis andet emne i midten + "Nej" as default
     function renderReflectDropdown() {
       if (!webs.length || !selectedWebId) {
         reflectSelect.style.display = 'none';
@@ -377,6 +406,7 @@
       const centerY = mainRect.height / 2;
       const bottomReserved = 50;
       const margin = 8;
+      const assocInputRect = assocInputBox.getBoundingClientRect();
 
       web.associations.forEach((assocTitle, idx) => {
         // figure out ring + index within ring
@@ -412,6 +442,7 @@
         let finalLeft = x - w / 2;
         let finalTop = y - h / 2;
 
+        // clamp to container
         if (finalLeft < margin) finalLeft = margin;
         if (finalTop < margin) finalTop = margin;
         if (finalLeft + w > mainRect.width - margin) {
@@ -419,6 +450,24 @@
         }
         if (finalTop + h > mainRect.height - margin - bottomReserved) {
           finalTop = mainRect.height - margin - bottomReserved - h;
+        }
+
+        // avoid overlapping the centered assoc input
+        const inputLeft = assocInputRect.left - mainRect.left;
+        const inputTop = assocInputRect.top - mainRect.top;
+        const inputRight = inputLeft + assocInputRect.width;
+        const inputBottom = inputTop + assocInputRect.height;
+
+        const overlapsInput =
+          !(finalLeft + w < inputLeft ||
+            finalLeft > inputRight ||
+            finalTop + h < inputTop ||
+            finalTop > inputBottom);
+
+        if (overlapsInput) {
+          // nudge up above the input box
+          finalTop = inputTop - h - 8;
+          if (finalTop < margin) finalTop = margin;
         }
 
         assocEl.style.left = finalLeft + 'px';
@@ -487,18 +536,29 @@
 
     function loadFromStorage() {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
+      if (!raw) {
+        return {
+          webs: [],
+          selectedWebId: null,
+          visualizedWebId: null,
+          centerOverrideId: null
+        };
+      }
       try {
         const data = JSON.parse(raw);
-        if (Array.isArray(data.webs)) {
-          selectedWebId = data.selectedWebId || null;
-          visualizedWebId = data.visualizedWebId || selectedWebId;
-          centerOverrideId = data.centerOverrideId || null;
-          return data.webs;
-        }
-        return [];
+        return {
+          webs: Array.isArray(data.webs) ? data.webs : [],
+          selectedWebId: data.selectedWebId || null,
+          visualizedWebId: data.visualizedWebId || (data.selectedWebId || null),
+          centerOverrideId: data.centerOverrideId || null
+        };
       } catch (e) {
-        return [];
+        return {
+          webs: [],
+          selectedWebId: null,
+          visualizedWebId: null,
+          centerOverrideId: null
+        };
       }
     }
 
