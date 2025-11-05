@@ -147,6 +147,28 @@
       cursor: pointer;
       transition: transform .15s ease-out;
     }
+
+    .assoc-node .assoc-delete {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 15px;
+      height: 15px;
+      border-radius: 999px;
+      background: #b91c1c;
+      color: #fff;
+      font-size: 10px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,.2);
+    }
+
+    .assoc-node:hover .assoc-delete {
+      display: flex;
+    }
+
     .assoc-node:hover {
       transform: scale(1.06);
       background: #e5e7eb;
@@ -409,6 +431,14 @@
       renderWeb();
     }
 
+    function removeAssociationFromWeb(webId, index) {
+      const w = getWebById(webId);
+      if (!w) return;
+      w.associations.splice(index, 1);
+      saveToStorage();
+      renderAll();
+    }
+
     function renderAll() {
       renderSidebar();
       renderReflectDropdown();
@@ -502,6 +532,7 @@
       const web = getWebById(visualizedWebId);
       if (!web) return;
 
+      // center-tekst (evt. overridet)
       let centerTitle = web.title;
       if (centerOverrideId) {
         const overrideWeb = getWebById(centerOverrideId);
@@ -510,6 +541,7 @@
         }
       }
 
+      // lav center
       const center = document.createElement('div');
       center.className = 'center-node';
       center.textContent = centerTitle;
@@ -522,11 +554,11 @@
       const margin = 8;
       const assocInputRect = assocInputBox.getBoundingClientRect();
 
-      // her gemmer vi allerede placerede bobler
+      // gem allerede placerede bobler
       const placed = [];
 
       web.associations.forEach((assocTitle, idx) => {
-        // 1) find ring + vinkel
+        // 1) find ring + index
         let ringIndex = 0;
         let indexWithinRing = idx;
         for (let r = 0; r < RING_CONFIG.length; r++) {
@@ -546,23 +578,33 @@
         const idealX = centerX + ring.radius * Math.cos(angle);
         const idealY = centerY + ring.radius * Math.sin(angle);
 
-        // 3) lav elementet
+        // 3) lav boblen
         const assocEl = document.createElement('div');
         assocEl.className = 'assoc-node';
         const derived = webs.find(w => w.title.toLowerCase() === assocTitle.toLowerCase());
         assocEl.textContent = assocTitle + (derived ? ' *' : '');
         mainArea.appendChild(assocEl);
 
-        // 4) find størrelse
+        // 3b) lav delete-knap
+        const del = document.createElement('div');
+        del.className = 'assoc-delete';
+        del.textContent = '–';
+        del.addEventListener('click', (e) => {
+          e.stopPropagation(); // så vi ikke åbner/navigerer
+          removeAssociationFromWeb(web.id, idx);
+        });
+        assocEl.appendChild(del);
+
+        // 4) mål
         const elRect = assocEl.getBoundingClientRect();
         const w = elRect.width;
         const h = elRect.height;
 
-        // 5) start med centeret af boblen på idealpos
+        // 5) udgangspunkt
         let finalLeft = idealX - w / 2;
         let finalTop = idealY - h / 2;
 
-        // 6) clamp til container
+        // 6) clamp til canvas
         if (finalLeft < margin) finalLeft = margin;
         if (finalTop < margin) finalTop = margin;
         if (finalLeft + w > mainRect.width - margin) {
@@ -572,7 +614,7 @@
           finalTop = mainRect.height - margin - bottomReserved - h;
         }
 
-        // 7) undgå input-boksen
+        // 7) undgå input-boks
         const inputLeft = assocInputRect.left - mainRect.left;
         const inputTop = assocInputRect.top - mainRect.top;
         const inputRight = inputLeft + assocInputRect.width;
@@ -589,39 +631,39 @@
           if (finalTop < margin) finalTop = margin;
         }
 
-        // 8) collision-resolve mod tidligere bobler
+        // 8) collision resolve mod tidligere
         const box = { x: finalLeft, y: finalTop, w, h };
         resolveCollisions(box, placed, centerX, centerY, mainRect, bottomReserved, margin);
 
-        // 9) sæt endelig position
+        // 9) sæt
         assocEl.style.left = box.x + 'px';
         assocEl.style.top = box.y + 'px';
 
-        // 10) gem denne boble til næste
+        // 10) gem denne
         placed.push(box);
 
+        // klik på boblen = create/select derived
         assocEl.addEventListener('click', () => {
           createOrSelectDerived(web.id, assocTitle);
         });
       });
 
-      // hjælper: flyt væk fra andre
+      // ===== helpers inside renderWeb =====
       function resolveCollisions(box, placed, cx, cy, mainRect, bottomReserved, margin) {
         const maxAttempts = 12;
         let attempts = 0;
         while (attempts < maxAttempts && overlapsAny(box, placed)) {
           attempts++;
-          // flyt lidt udad fra center
           const boxCenterX = box.x + box.w / 2;
           const boxCenterY = box.y + box.h / 2;
           const dx = boxCenterX - cx;
           const dy = boxCenterY - cy;
           const len = Math.sqrt(dx*dx + dy*dy) || 1;
-          const step = 10; // px
+          const step = 10;
           box.x += (dx / len) * step;
           box.y += (dy / len) * step;
 
-          // clamp igen
+          // clamp
           if (box.x < margin) box.x = margin;
           if (box.y < margin) box.y = margin;
           if (box.x + box.w > mainRect.width - margin) {
@@ -649,7 +691,7 @@
         );
       }
     }
-    
+
     function createOrSelectDerived(parentId, title) {
       const existing = webs.find(w => w.title.toLowerCase() === title.toLowerCase());
       if (existing) {
