@@ -25,7 +25,7 @@
       flex-direction: column;
       gap: 1rem;
       overflow-y: auto;
-      transition: width .1s ease-out, padding .1s ease-out;
+      transition: width .0s ease-out, padding .0s ease-out;
       position: relative;
     }
     .sidebar.collapsed {
@@ -145,7 +145,7 @@
       padding: .35rem .75rem;
       white-space: nowrap;
       cursor: pointer;
-      transition: transform .15s ease-out;
+      transition: transform .0s ease-out;
     }
 
     .assoc-node .assoc-delete {
@@ -358,6 +358,7 @@
     collapseBtn.addEventListener('click', () => {
       sidebar.classList.toggle('collapsed');
       collapseBtn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+      renderWeb();
     });
 
     // delete all memory
