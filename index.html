@@ -522,7 +522,11 @@
       const margin = 8;
       const assocInputRect = assocInputBox.getBoundingClientRect();
 
+      // her gemmer vi allerede placerede bobler
+      const placed = [];
+
       web.associations.forEach((assocTitle, idx) => {
+        // 1) find ring + vinkel
         let ringIndex = 0;
         let indexWithinRing = idx;
         for (let r = 0; r < RING_CONFIG.length; r++) {
@@ -538,23 +542,27 @@
         const totalInThisRing = ring.capacity;
         const angle = (2 * Math.PI * indexWithinRing) / totalInThisRing;
 
-        const x = centerX + ring.radius * Math.cos(angle);
-        const y = centerY + ring.radius * Math.sin(angle);
+        // 2) ideal position
+        const idealX = centerX + ring.radius * Math.cos(angle);
+        const idealY = centerY + ring.radius * Math.sin(angle);
 
+        // 3) lav elementet
         const assocEl = document.createElement('div');
         assocEl.className = 'assoc-node';
-
         const derived = webs.find(w => w.title.toLowerCase() === assocTitle.toLowerCase());
         assocEl.textContent = assocTitle + (derived ? ' *' : '');
-
         mainArea.appendChild(assocEl);
+
+        // 4) find størrelse
         const elRect = assocEl.getBoundingClientRect();
         const w = elRect.width;
         const h = elRect.height;
 
-        let finalLeft = x - w / 2;
-        let finalTop = y - h / 2;
+        // 5) start med centeret af boblen på idealpos
+        let finalLeft = idealX - w / 2;
+        let finalTop = idealY - h / 2;
 
+        // 6) clamp til container
         if (finalLeft < margin) finalLeft = margin;
         if (finalTop < margin) finalTop = margin;
         if (finalLeft + w > mainRect.width - margin) {
@@ -564,7 +572,7 @@
           finalTop = mainRect.height - margin - bottomReserved - h;
         }
 
-        // check overlap with input box
+        // 7) undgå input-boksen
         const inputLeft = assocInputRect.left - mainRect.left;
         const inputTop = assocInputRect.top - mainRect.top;
         const inputRight = inputLeft + assocInputRect.width;
@@ -581,15 +589,67 @@
           if (finalTop < margin) finalTop = margin;
         }
 
-        assocEl.style.left = finalLeft + 'px';
-        assocEl.style.top = finalTop + 'px';
+        // 8) collision-resolve mod tidligere bobler
+        const box = { x: finalLeft, y: finalTop, w, h };
+        resolveCollisions(box, placed, centerX, centerY, mainRect, bottomReserved, margin);
+
+        // 9) sæt endelig position
+        assocEl.style.left = box.x + 'px';
+        assocEl.style.top = box.y + 'px';
+
+        // 10) gem denne boble til næste
+        placed.push(box);
 
         assocEl.addEventListener('click', () => {
           createOrSelectDerived(web.id, assocTitle);
         });
       });
-    }
 
+      // hjælper: flyt væk fra andre
+      function resolveCollisions(box, placed, cx, cy, mainRect, bottomReserved, margin) {
+        const maxAttempts = 12;
+        let attempts = 0;
+        while (attempts < maxAttempts && overlapsAny(box, placed)) {
+          attempts++;
+          // flyt lidt udad fra center
+          const boxCenterX = box.x + box.w / 2;
+          const boxCenterY = box.y + box.h / 2;
+          const dx = boxCenterX - cx;
+          const dy = boxCenterY - cy;
+          const len = Math.sqrt(dx*dx + dy*dy) || 1;
+          const step = 10; // px
+          box.x += (dx / len) * step;
+          box.y += (dy / len) * step;
+
+          // clamp igen
+          if (box.x < margin) box.x = margin;
+          if (box.y < margin) box.y = margin;
+          if (box.x + box.w > mainRect.width - margin) {
+            box.x = mainRect.width - margin - box.w;
+          }
+          if (box.y + box.h > mainRect.height - margin - bottomReserved) {
+            box.y = mainRect.height - margin - bottomReserved - box.h;
+          }
+        }
+      }
+
+      function overlapsAny(box, list) {
+        for (const other of list) {
+          if (rectsOverlap(box, other)) return true;
+        }
+        return false;
+      }
+
+      function rectsOverlap(a, b) {
+        return !(
+          a.x + a.w <= b.x ||
+          a.x >= b.x + b.w ||
+          a.y + a.h <= b.y ||
+          a.y >= b.y + b.h
+        );
+      }
+    }
+    
     function createOrSelectDerived(parentId, title) {
       const existing = webs.find(w => w.title.toLowerCase() === title.toLowerCase());
       if (existing) {
