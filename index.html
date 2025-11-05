@@ -5,6 +5,10 @@
   <title>Joke Web Builder</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    :root {
+      --sidebar-width: 320px;
+      --sidebar-collapsed-width: 10px;
+    }
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -12,7 +16,7 @@
       height: 100vh;
     }
     .sidebar {
-      width: 320px;
+      width: var(--sidebar-width);
       border-right: 1px solid #ddd;
       padding: 1rem;
       box-sizing: border-box;
@@ -21,10 +25,42 @@
       flex-direction: column;
       gap: 1rem;
       overflow-y: auto;
+      transition: width .1s ease-out, padding .1s ease-out;
+      position: relative;
+    }
+    .sidebar.collapsed {
+      width: var(--sidebar-collapsed-width);
+      padding: .5rem .4rem;
+      overflow: visible;
     }
     .sidebar h2 {
       margin: 0;
       font-size: 1.1rem;
+      transition: opacity .15s ease-out;
+    }
+    .sidebar.collapsed h2,
+    .sidebar.collapsed .hide-when-collapsed {
+      opacity: 0;
+      pointer-events: none;
+      height: 0;
+      margin: 0;
+      padding: 0;
+    }
+    .collapse-btn {
+      position: absolute;
+      top: .5rem;
+      left: .5rem;
+      width: 26px;
+      height: 26px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .8rem;
+      margin:5px;
     }
     .web-list {
       border: 1px solid #ddd;
@@ -33,7 +69,7 @@
       padding: .5rem;
       max-height: 180px;
       overflow-y: auto;
-      margin-bottom: 4px; /* 2-3px spacing, slightly more to be safe */
+      margin-bottom: 4px;
     }
     .web-item {
       padding: .2rem .3rem;
@@ -76,6 +112,12 @@
       color: #fff;
       border-color: #2563eb;
     }
+    .plus-btn {
+      width: 34px;
+      text-align: center;
+      font-weight: 600;
+      padding: .35rem 0;
+    }
     .main {
       flex: 1;
       position: relative;
@@ -114,16 +156,30 @@
       left: 0;
       right: 0;
       bottom: 0;
-      padding: .5rem 1rem;
-      background: rgba(248, 248, 248, .85);
+      padding: .6rem 1rem;
       display: flex;
       gap: .5rem;
       align-items: center;
+      justify-content: center;
+      font-size: .75rem;
     }
-    .section-title {
+    .tip-box {
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      color: #374151;
+      background: #f3f4f6;
+      padding: 5px;
+      border-radius: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    .tip-pill {
+      background: #e0ecff;
+      color: #1f2937;
+      padding: .2rem .55rem;
+      border-radius: 999px;
+      font-size: .65rem;
       font-weight: 600;
-      font-size: .9rem;
-      margin-bottom: .3rem;
     }
     #exportOutput {
       width: 100%;
@@ -138,12 +194,11 @@
       border: 1px solid #ccc;
       background: #fff;
     }
-    /* centered association input under main */
     .assoc-floating {
       position: absolute;
       left: 50%;
       transform: translateX(-50%);
-      top: 85%; /* under main center */
+      top: 85%;
       background: rgba(248, 248, 248, .9);
       border: 1px solid #ddd;
       border-radius: 8px;
@@ -151,7 +206,7 @@
       display: flex;
       gap: .4rem;
       align-items: center;
-      box-shadow: 0 10px 25px rgba(0,0,0,.05);
+      box-shadow: 0 8px 12px rgba(0,0,0,.05);
     }
     .assoc-floating input {
       width: 260px;
@@ -160,18 +215,48 @@
       border: 1px solid #ccc;
       font-size: .9rem;
     }
-    /* plus button on new web input */
-    .plus-btn {
-      width: 34px;
-      text-align: center;
+    /* suggestions box */
+    .suggestions {
+      background: #f1f2f3;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: .5rem .6rem;
+      font-size: .72rem;
+      color: #4b5563;
+      line-height: 1.35;
+    }
+    .suggestions-title {
       font-weight: 600;
-      padding: .35rem 0;
+      margin-bottom: .25rem;
+      font-size: .75rem;
+    }
+    .delete-all-btn {
+      background: #fff;
+      border: 1px solid #f0b4b4;
+      color: #b91c1c;
+      font-size: .7rem;
+      padding: .25rem .4rem;
+      border-radius: 4px;
+      margin-top: .25rem;
+    }
+
+    /* collapsed-specific hiding */
+    .sidebar.collapsed .web-list,
+    .sidebar.collapsed .input-row,
+    .sidebar.collapsed .section-title,
+    .sidebar.collapsed .suggestions,
+    .sidebar.collapsed #reflectSelect,
+    .sidebar.collapsed #exportBtn,
+    .sidebar.collapsed #exportOutput,
+    .sidebar.collapsed .delete-all-btn {
+      display: none !important;
     }
   </style>
 </head>
 <body>
-  <div class="sidebar">
-    <div>
+  <div class="sidebar" id="sidebar">
+    
+    <div class="hide-when-collapsed">
       <h2>Joke webs</h2>
       <div class="web-list" id="webList" style="display:none;"></div>
       <div class="input-row">
@@ -180,24 +265,42 @@
       </div>
     </div>
 
-    <div>
+    <div class="hide-when-collapsed">
       <div class="section-title">Vis andet emne i midten</div>
       <select id="reflectSelect" style="display:none;"></select>
     </div>
 
-    <div>
+    <div class="hide-when-collapsed">
       <div class="section-title">Eksporter til markdown</div>
       <button id="exportBtn">Eksporter</button>
       <textarea id="exportOutput"></textarea>
     </div>
+
+    <div class="hide-when-collapsed">
+      <div class="section-title">Gode råd til Joke Webs</div>
+      <div class="suggestions">
+        <div class="suggestions-title">Tips</div>
+        <ul style="padding-left:1rem; margin:0;">
+          <li>Associer bredt – men husk også at få de oplagte med. (i.e. "Hospital" skal helst ikke tømmes ud uden at "Læge" bringes op)</li>
+          <li>Se hvert joke web som en ny start. (i.e. hvis du er gået fra "Jul" til "Gaver", så bør "Tre vise mænd" ikke komme først) </li>
+          <li>Vælg afledte emner, der hverken er for tætte på oprindelsesemnet eller for langt væk. (i.e. hvis du vælger for nærtliggende et associationsemne så er der for stort et overlap og hvis associationsemnet er for fjernt, så kan det være svært for andre at følge med.) </li>
+        </ul>
+      </div>
+      <span style="font-size:.65rem; display:block; color:#6b7280;">Data gemmes lokalt i din browser.</span>
+      <button class="delete-all-btn" id="deleteAllBtn">Slet al hukommelse</button>
+    </div>
   </div>
 
   <div class="main" id="mainArea">
+    <button class="collapse-btn" id="collapseBtn">◀</button>
     <div class="bottom-bar">
-      <div>Tip: Klik på en association i grafen for at oprette / gå til et afledt web.</div>
+      <div class="tip-box">
+        <span class="tip-pill">TIP</span>
+        <span>Klik på en boble for at starte et nyt joke web på det emne.</span>
+      </div>
     </div>
 
-    <!-- centered association input in main view -->
+    <!-- centered association input -->
     <div class="assoc-floating" id="assocInputBox">
       <input type="text" id="newAssocInput" placeholder="Ny association..." />
     </div>
@@ -205,17 +308,13 @@
 
   <script>
     const STORAGE_KEY = "jokeweb-data-v1";
-
-    // ring config for stable layout
     const RING_CONFIG = [
       { radius: 140, capacity: 8 },
       { radius: 220, capacity: 12 },
       { radius: 300, capacity: 16 }
     ];
 
-    // load stored data first
     const stored = loadFromStorage();
-
     let webs = stored.webs;
     let selectedWebId = stored.selectedWebId;
     let visualizedWebId = stored.visualizedWebId;
@@ -229,15 +328,32 @@
     const reflectSelect = document.getElementById('reflectSelect');
     const addRootBtn = document.getElementById('addRootBtn');
     const assocInputBox = document.getElementById('assocInputBox');
+    const sidebar = document.getElementById('sidebar');
+    const collapseBtn = document.getElementById('collapseBtn');
+    const deleteAllBtn = document.getElementById('deleteAllBtn');
 
-    // ENTER for new web
+    // collapse toggle
+    collapseBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      collapseBtn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+    });
+
+    // delete all memory
+    deleteAllBtn.addEventListener('click', () => {
+      const ok = confirm("Er du sikker på, at du vil slette alle joke webs?\nDette kan ikke fortrydes.");
+      if (ok) {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+      }
+    });
+
+    // new web: enter
     newRootInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         createNewWeb();
       }
     });
-
     addRootBtn.addEventListener('click', () => {
       createNewWeb();
     });
@@ -260,7 +376,7 @@
       renderAll();
     }
 
-    // ENTER to add association
+    // add association via enter
     newAssocInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -325,7 +441,6 @@
     function appendWebListItem(web, level, byParent) {
       const item = document.createElement('div');
       item.className = 'web-item' + (web.id === selectedWebId ? ' active' : '');
-      // click anywhere to select
       item.addEventListener('click', () => {
         selectedWebId = web.id;
         visualizedWebId = web.id;
@@ -381,7 +496,6 @@
       }
     }
 
-    // ring-based render
     function renderWeb() {
       mainArea.querySelectorAll('.center-node, .assoc-node').forEach(el => el.remove());
       if (!visualizedWebId) return;
@@ -409,7 +523,6 @@
       const assocInputRect = assocInputBox.getBoundingClientRect();
 
       web.associations.forEach((assocTitle, idx) => {
-        // figure out ring + index within ring
         let ringIndex = 0;
         let indexWithinRing = idx;
         for (let r = 0; r < RING_CONFIG.length; r++) {
@@ -442,7 +555,6 @@
         let finalLeft = x - w / 2;
         let finalTop = y - h / 2;
 
-        // clamp to container
         if (finalLeft < margin) finalLeft = margin;
         if (finalTop < margin) finalTop = margin;
         if (finalLeft + w > mainRect.width - margin) {
@@ -452,7 +564,7 @@
           finalTop = mainRect.height - margin - bottomReserved - h;
         }
 
-        // avoid overlapping the centered assoc input
+        // check overlap with input box
         const inputLeft = assocInputRect.left - mainRect.left;
         const inputTop = assocInputRect.top - mainRect.top;
         const inputRight = inputLeft + assocInputRect.width;
@@ -465,7 +577,6 @@
             finalTop > inputBottom);
 
         if (overlapsInput) {
-          // nudge up above the input box
           finalTop = inputTop - h - 8;
           if (finalTop < margin) finalTop = margin;
         }
