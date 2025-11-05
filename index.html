@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <title>Joke Web Builder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      height: 100vh;
+    }
+    .sidebar {
+      width: 320px;
+      border-right: 1px solid #ddd;
+      padding: 1rem;
+      box-sizing: border-box;
+      background: #f8f8f8;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      overflow-y: auto;
+    }
+    .sidebar h2 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+    .web-list {
+      border: 1px solid #ddd;
+      background: #fff;
+      border-radius: 6px;
+      padding: .5rem;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .web-item {
+      padding: .2rem .3rem;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      gap: .5rem;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .web-item.active {
+      background: #e0ecff;
+    }
+    .web-item button {
+      border: none;
+      background: none;
+      color: #aaa;
+      cursor: pointer;
+    }
+    .input-row {
+      display: flex;
+      gap: .5rem;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: .4rem .5rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    button {
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      background: #fff;
+      padding: .35rem .7rem;
+    }
+    button.primary {
+      background: #2563eb;
+      color: #fff;
+      border-color: #2563eb;
+    }
+    .main {
+      flex: 1;
+      position: relative;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    .center-node {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #2563eb;
+      color: white;
+      padding: .6rem 1.2rem;
+      border-radius: 999px;
+      font-weight: 600;
+      text-align: center;
+      min-width: 120px;
+    }
+    .assoc-node {
+      position: absolute;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 999px;
+      padding: .35rem .75rem;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: transform .15s ease-out;
+    }
+    .assoc-node:hover {
+      transform: scale(1.06);
+      background: #e5e7eb;
+    }
+    .bottom-bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: .5rem 1rem;
+      background: rgba(248, 248, 248, .85);
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+    }
+    .section-title {
+      font-weight: 600;
+      font-size: .9rem;
+      margin-bottom: .3rem;
+    }
+    #exportOutput {
+      width: 100%;
+      height: 140px;
+      box-sizing: border-box;
+      display: none;
+    }
+    select {
+      width: 100%;
+      padding: .35rem .4rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div>
+      <h2>Joke webs</h2>
+      <div class="web-list" id="webList" style="display:none;"></div>
+      <div class="input-row">
+        <input type="text" id="newRootInput" placeholder="Nyt hovedemne (fx Jul)" />
+        <button class="primary" id="addRootBtn">Tilføj</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Tilføj association</div>
+      <div class="input-row">
+        <input type="text" id="newAssocInput" placeholder="fx Gaver" />
+        <button id="addAssocBtn">+</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Vis andet emne i midten</div>
+      <select id="reflectSelect" style="display:none;"></select>
+    </div>
+
+    <div>
+      <div class="section-title">Eksporter til markdown</div>
+      <button id="exportBtn">Eksporter</button>
+      <textarea id="exportOutput"></textarea>
+    </div>
+  </div>
+
+  <div class="main" id="mainArea">
+    <div class="bottom-bar">
+      <div>Tip: Klik på en association i grafen for at oprette / gå til et afledt web.</div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "jokeweb-data-v1";
+
+    // ring config for stable layout
+    const RING_CONFIG = [
+      { radius: 140, capacity: 8 },
+      { radius: 220, capacity: 12 },
+      { radius: 300, capacity: 16 }
+    ];
+
+    let webs = loadFromStorage();
+    let selectedWebId = (webs.length ? webs[0].id : null);
+    let visualizedWebId = selectedWebId;
+    let centerOverrideId = null;
+
+    const webListEl = document.getElementById('webList');
+    const mainArea = document.getElementById('mainArea');
+    const newRootInput = document.getElementById('newRootInput');
+    const newAssocInput = document.getElementById('newAssocInput');
+    const exportOutput = document.getElementById('exportOutput');
+    const reflectSelect = document.getElementById('reflectSelect');
+    const addRootBtn = document.getElementById('addRootBtn');
+
+    // 1: Enter for new web
+    newRootInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        createNewWeb();
+      }
+    });
+
+    addRootBtn.addEventListener('click', () => {
+      createNewWeb();
+    });
+
+    function createNewWeb() {
+      const title = newRootInput.value.trim();
+      if (!title) return;
+      const newWeb = {
+        id: makeId(),
+        title,
+        associations: [],
+        derivedFrom: null
+      };
+      webs.push(newWeb);
+      selectedWebId = newWeb.id;
+      visualizedWebId = newWeb.id;
+      centerOverrideId = null;
+      newRootInput.value = '';
+      saveToStorage();
+      renderAll();
+    }
+
+    // enter for assoc
+    newAssocInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addAssoc();
+      }
+    });
+    document.getElementById('addAssocBtn').addEventListener('click', addAssoc);
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      exportOutput.value = generateMarkdown(webs);
+      exportOutput.style.display = 'block';
+    });
+
+    reflectSelect.addEventListener('change', () => {
+      const chosenId = reflectSelect.value;
+      if (chosenId === 'none') {
+        centerOverrideId = null;
+      } else {
+        centerOverrideId = chosenId;
+      }
+      renderWeb();
+    });
+
+    function addAssoc() {
+      const assoc = newAssocInput.value.trim();
+      if (!assoc || !selectedWebId) return;
+      const web = getWebById(selectedWebId);
+      web.associations.push(assoc);
+      newAssocInput.value = '';
+      saveToStorage();
+      renderWeb();
+    }
+
+    function renderAll() {
+      renderSidebar();
+      renderReflectDropdown();
+      renderWeb();
+    }
+
+    function renderSidebar() {
+      if (!webs.length) {
+        webListEl.style.display = 'none';
+      } else {
+        webListEl.style.display = 'block';
+      }
+
+      webListEl.innerHTML = '';
+
+      const roots = webs.filter(w => !w.derivedFrom);
+      const byParent = {};
+      webs.forEach(w => {
+        if (w.derivedFrom) {
+          if (!byParent[w.derivedFrom]) byParent[w.derivedFrom] = [];
+          byParent[w.derivedFrom].push(w);
+        }
+      });
+
+      roots.forEach(root => {
+        appendWebListItem(root, 0, byParent);
+      });
+    }
+
+    function appendWebListItem(web, level, byParent) {
+      const item = document.createElement('div');
+      item.className = 'web-item' + (web.id === selectedWebId ? ' active' : '');
+      // 2: click anywhere on web-item
+      item.addEventListener('click', () => {
+        selectedWebId = web.id;
+        visualizedWebId = web.id;
+        centerOverrideId = null;
+        renderAll();
+      });
+
+      const span = document.createElement('span');
+      span.textContent = '  '.repeat(level) + web.title;
+      span.style.whiteSpace = 'pre';
+
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      // prevent item-click
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteWeb(web.id);
+      });
+
+      item.appendChild(span);
+      item.appendChild(delBtn);
+      webListEl.appendChild(item);
+
+      const children = byParent[web.id];
+      if (children && children.length) {
+        children.forEach(ch => appendWebListItem(ch, level + 1, byParent));
+      }
+    }
+
+    // 3+4: Vis andet emne i midten + "Nej" as default
+    function renderReflectDropdown() {
+      if (!webs.length || !selectedWebId) {
+        reflectSelect.style.display = 'none';
+        return;
+      }
+      reflectSelect.style.display = 'block';
+      reflectSelect.innerHTML = '';
+      const optNone = document.createElement('option');
+      optNone.value = 'none';
+      optNone.textContent = 'Nej';
+      reflectSelect.appendChild(optNone);
+
+      webs.forEach(w => {
+        const opt = document.createElement('option');
+        opt.value = w.id;
+        opt.textContent = w.title;
+        reflectSelect.appendChild(opt);
+      });
+
+      if (centerOverrideId) {
+        reflectSelect.value = centerOverrideId;
+      } else {
+        reflectSelect.value = 'none';
+      }
+    }
+
+    // ring-based render
+    function renderWeb() {
+      mainArea.querySelectorAll('.center-node, .assoc-node').forEach(el => el.remove());
+      if (!visualizedWebId) return;
+      const web = getWebById(visualizedWebId);
+      if (!web) return;
+
+      let centerTitle = web.title;
+      if (centerOverrideId) {
+        const overrideWeb = getWebById(centerOverrideId);
+        if (overrideWeb) {
+          centerTitle = overrideWeb.title;
+        }
+      }
+
+      const center = document.createElement('div');
+      center.className = 'center-node';
+      center.textContent = centerTitle;
+      mainArea.appendChild(center);
+
+      const mainRect = mainArea.getBoundingClientRect();
+      const centerX = mainRect.width / 2;
+      const centerY = mainRect.height / 2;
+      const bottomReserved = 50;
+      const margin = 8;
+
+      web.associations.forEach((assocTitle, idx) => {
+        // figure out ring + index within ring
+        let ringIndex = 0;
+        let indexWithinRing = idx;
+        for (let r = 0; r < RING_CONFIG.length; r++) {
+          const cap = RING_CONFIG[r].capacity;
+          if (indexWithinRing < cap) {
+            ringIndex = r;
+            break;
+          } else {
+            indexWithinRing -= cap;
+          }
+        }
+        const ring = RING_CONFIG[Math.min(ringIndex, RING_CONFIG.length - 1)];
+        const totalInThisRing = ring.capacity;
+        const angle = (2 * Math.PI * indexWithinRing) / totalInThisRing;
+
+        const x = centerX + ring.radius * Math.cos(angle);
+        const y = centerY + ring.radius * Math.sin(angle);
+
+        const assocEl = document.createElement('div');
+        assocEl.className = 'assoc-node';
+
+        const derived = webs.find(w => w.title.toLowerCase() === assocTitle.toLowerCase());
+        assocEl.textContent = assocTitle + (derived ? ' *' : '');
+
+        mainArea.appendChild(assocEl);
+        const elRect = assocEl.getBoundingClientRect();
+        const w = elRect.width;
+        const h = elRect.height;
+
+        let finalLeft = x - w / 2;
+        let finalTop = y - h / 2;
+
+        if (finalLeft < margin) finalLeft = margin;
+        if (finalTop < margin) finalTop = margin;
+        if (finalLeft + w > mainRect.width - margin) {
+          finalLeft = mainRect.width - margin - w;
+        }
+        if (finalTop + h > mainRect.height - margin - bottomReserved) {
+          finalTop = mainRect.height - margin - bottomReserved - h;
+        }
+
+        assocEl.style.left = finalLeft + 'px';
+        assocEl.style.top = finalTop + 'px';
+
+        assocEl.addEventListener('click', () => {
+          createOrSelectDerived(web.id, assocTitle);
+        });
+      });
+    }
+
+    function createOrSelectDerived(parentId, title) {
+      const existing = webs.find(w => w.title.toLowerCase() === title.toLowerCase());
+      if (existing) {
+        selectedWebId = existing.id;
+        visualizedWebId = existing.id;
+        centerOverrideId = null;
+      } else {
+        const newWeb = {
+          id: makeId(),
+          title,
+          associations: [],
+          derivedFrom: parentId
+        };
+        webs.push(newWeb);
+        selectedWebId = newWeb.id;
+        visualizedWebId = newWeb.id;
+        centerOverrideId = null;
+      }
+      saveToStorage();
+      renderAll();
+    }
+
+    function deleteWeb(id) {
+      webs = webs.filter(w => w.id !== id);
+      if (selectedWebId === id) {
+        selectedWebId = webs.length ? webs[0].id : null;
+        visualizedWebId = selectedWebId;
+        centerOverrideId = null;
+      }
+      saveToStorage();
+      renderAll();
+    }
+
+    function generateMarkdown(webs) {
+      let md = '';
+      webs.forEach(w => {
+        md += '# ' + w.title + '\n\n';
+        if (w.associations.length) {
+          w.associations.forEach(a => {
+            const derived = webs.find(x => x.title.toLowerCase() === a.toLowerCase());
+            md += '- ' + a + (derived ? ' *' : '') + '\n';
+          });
+        } else {
+          md += '_Ingen associationer endnu_ \n';
+        }
+        md += '\n';
+      });
+      return md;
+    }
+
+    function saveToStorage() {
+      const data = { webs, selectedWebId, visualizedWebId, centerOverrideId };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function loadFromStorage() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      try {
+        const data = JSON.parse(raw);
+        if (Array.isArray(data.webs)) {
+          selectedWebId = data.selectedWebId || null;
+          visualizedWebId = data.visualizedWebId || selectedWebId;
+          centerOverrideId = data.centerOverrideId || null;
+          return data.webs;
+        }
+        return [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function makeId() {
+      return (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now());
+    }
+
+    function getWebById(id) {
+      return webs.find(w => w.id === id);
+    }
+
+    // init
+    renderAll();
+  </script>
+</body>
+</html>
