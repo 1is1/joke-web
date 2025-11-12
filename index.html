@@ -9,12 +9,18 @@
       --sidebar-width: 320px;
       --sidebar-collapsed-width: 10px;
     }
+
+    * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       display: flex;
       height: 100vh;
+      background: #fff; /* match Sætningsmaskine */
     }
+
+    /* SIDEBAR */
     .sidebar {
       width: var(--sidebar-width);
       border-right: 1px solid #ddd;
@@ -35,9 +41,17 @@
     }
     .sidebar h2 {
       margin: 0;
-      font-size: 1.1rem;
+      font-size: 1.05rem; /* match Sætningsmaskine */
       transition: opacity .15s ease-out;
     }
+    .section-title {
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #4b5563;
+      margin: 0 0 .35rem 0;
+    }
+
     .sidebar.collapsed h2,
     .sidebar.collapsed .hide-when-collapsed {
       opacity: 0;
@@ -46,6 +60,7 @@
       margin: 0;
       padding: 0;
     }
+
     .collapse-btn {
       position: absolute;
       top: .5rem;
@@ -62,43 +77,50 @@
       font-size: .8rem;
       margin:5px;
     }
+
+    /* Sidebar list to match sentence machine */
     .web-list {
       border: 1px solid #ddd;
       background: #fff;
       border-radius: 6px;
-      padding: .5rem;
-      max-height: 180px;
+      padding: 0;
+      max-height: 160px;
       overflow-y: auto;
       margin-bottom: 4px;
     }
     .web-item {
-      padding: .2rem .3rem;
-      border-radius: 4px;
+      padding: .35rem .45rem;
+      border-bottom: 1px solid #eee;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
       gap: .5rem;
       align-items: center;
       white-space: nowrap;
+      font-size: .7rem;
     }
-    .web-item.active {
-      background: #e0ecff;
-    }
+    .web-item:last-child { border-bottom: none; }
+    .web-item.active { background: #e0ecff; }
     .web-item button {
       border: none;
       background: none;
-      color: #aaa;
+      color: #b91c1c;
       cursor: pointer;
+      font-size: .8rem;
     }
+
+    /* Inputs & buttons to match sentence machine */
     .input-row {
       display: flex;
       gap: .5rem;
     }
-    input[type="text"] {
+    input[type="text"], select, textarea {
       flex: 1;
-      padding: .4rem .5rem;
-      border-radius: 4px;
-      border: 1px solid #ccc;
+      padding: .4rem .45rem;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      font-size: .8rem;
+      background: #fff;
     }
     button {
       cursor: pointer;
@@ -106,6 +128,7 @@
       border: 1px solid #ccc;
       background: #fff;
       padding: .35rem .7rem;
+      font-size: .7rem;
     }
     button.primary {
       background: #2563eb;
@@ -118,6 +141,8 @@
       font-weight: 600;
       padding: .35rem 0;
     }
+
+    /* MAIN AREA */
     .main {
       flex: 1;
       position: relative;
@@ -136,24 +161,34 @@
       font-weight: 600;
       text-align: center;
       min-width: 120px;
+      font-size: .8rem; /* align with step-title scale */
+      box-shadow: 0 3px 10px rgba(0,0,0,.05);
     }
+
     .assoc-node {
       position: absolute;
-      background: #f3f4f6;
+      background: rgba(248, 248, 248, .9);
       border: 1px solid #e5e7eb;
       border-radius: 999px;
       padding: .35rem .75rem;
       white-space: nowrap;
       cursor: pointer;
-      transition: transform .0s ease-out;
+      transition: transform .08s ease-out, background .08s ease-out;
+      font-size: .75rem;
+      color: #0f172a;
+      box-shadow: 0 3px 10px rgba(0,0,0,.05);
+    }
+    .assoc-node:hover {
+      transform: scale(1.03);
+      background: #f1f5f9;
     }
 
     .assoc-node .assoc-delete {
       position: absolute;
       top: -6px;
       right: -6px;
-      width: 15px;
-      height: 15px;
+      width: 16px;
+      height: 16px;
       border-radius: 999px;
       background: #b91c1c;
       color: #fff;
@@ -164,15 +199,10 @@
       cursor: pointer;
       box-shadow: 0 2px 4px rgba(0,0,0,.2);
     }
-
     .assoc-node:hover .assoc-delete {
       display: flex;
     }
 
-    .assoc-node:hover {
-      transform: scale(1.06);
-      background: #e5e7eb;
-    }
     .bottom-bar {
       position: absolute;
       left: 0;
@@ -190,32 +220,29 @@
       gap: .5rem;
       align-items: center;
       color: #374151;
-      background: #f3f4f6;
-      padding: 5px;
-      border-radius: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+      background: #fafafa;
+      padding: .55rem .7rem .5rem;
+      border-radius: 8px;
+      border: 1px dashed #d1d5db;
+      box-shadow: none;
     }
     .tip-pill {
-      background: #e0ecff;
-      color: #1f2937;
-      padding: .2rem .55rem;
+      background: #2563eb;
+      color: #fff;
+      padding: .15rem .5rem;
       border-radius: 999px;
       font-size: .65rem;
       font-weight: 600;
     }
+
     #exportOutput {
       width: 100%;
-      height: 140px;
+      min-height: 100px;
       box-sizing: border-box;
       display: none;
+      font-size: .7rem;
     }
-    select {
-      width: 100%;
-      padding: .35rem .4rem;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-      background: #fff;
-    }
+
     .assoc-floating {
       position: absolute;
       left: 50%;
@@ -233,11 +260,13 @@
     .assoc-floating input {
       width: 260px;
       padding: .4rem .45rem;
-      border-radius: 4px;
-      border: 1px solid #ccc;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
       font-size: .9rem;
+      background: #fff;
     }
-    /* suggestions box */
+
+    /* Suggestions (exact match) */
     .suggestions {
       background: #f1f2f3;
       border: 1px solid #e0e0e0;
@@ -260,6 +289,7 @@
       padding: .25rem .4rem;
       border-radius: 4px;
       margin-top: .25rem;
+      cursor: pointer;
     }
 
     /* collapsed-specific hiding */
@@ -274,6 +304,7 @@
       display: none !important;
     }
 
+    /* Back to overview (already aligned with sentence machine) */
     .back-to-overview {
       position: fixed;
       top: 1rem;
@@ -294,18 +325,24 @@
     .back-to-overview:hover {
       background: #f8fafc;
     }
-
   </style>
 </head>
 <body>
   <div class="sidebar" id="sidebar">
-    
     <div class="hide-when-collapsed">
       <h2>Joke webs</h2>
-      <div class="web-list" id="webList" style="display:none;"></div>
-      <div class="input-row">
-        <input type="text" id="newRootInput" placeholder="Nyt hovedemne (fx Jul)" />
-        <button class="primary plus-btn" id="addRootBtn">+</button>
+
+      <div>
+        <div class="section-title">Overblik</div>
+        <div class="web-list" id="webList" style="display:none;"></div>
+      </div>
+
+      <div>
+        <div class="section-title">Nyt hovedemne</div>
+        <div class="input-row">
+          <input type="text" id="newRootInput" placeholder="fx Jul" />
+          <button class="primary plus-btn" id="addRootBtn">+</button>
+        </div>
       </div>
     </div>
 
@@ -338,6 +375,7 @@
   <div class="main" id="mainArea">
     <a href="https://1is1.github.io/joke-tools/" class="back-to-overview">← Til oversigt</a>
     <button class="collapse-btn" id="collapseBtn">◀</button>
+
     <div class="bottom-bar">
       <div class="tip-box">
         <span class="tip-pill">TIP</span>
@@ -350,7 +388,6 @@
       <input type="text" id="newAssocInput" placeholder="Ny association..." />
     </div>
   </div>
-  
 
   <script>
     const STORAGE_KEY = "joke-web-data";
@@ -434,6 +471,7 @@
     document.getElementById('exportBtn').addEventListener('click', () => {
       exportOutput.value = generateMarkdown(webs);
       exportOutput.style.display = 'block';
+      exportOutput.select?.();
     });
 
     reflectSelect.addEventListener('change', () => {
@@ -610,7 +648,7 @@
         assocEl.textContent = assocTitle + (derived ? ' *' : '');
         mainArea.appendChild(assocEl);
 
-        // 3b) lav delete-knap
+        // 3b) delete-knap
         const del = document.createElement('div');
         del.className = 'assoc-delete';
         del.textContent = '–';
